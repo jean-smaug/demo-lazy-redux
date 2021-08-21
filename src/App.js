@@ -8,27 +8,42 @@ const appSlice = createSlice({
   name: "app",
   initialState: {
     player: "idle",
+    profile: "idle",
   },
   reducers: {
-    loadPlayer: (state) => {
-      if (state.player === "idle") {
-        state.player = "pending";
+    setSliceLoading: (state, { payload }) => {
+      if (!state[payload]) throw new Error(`module ${payload} doesn't exists`);
+
+      if (state[payload] === "idle") {
+        state[payload] = "pending";
       }
     },
-    setPlayerLoaded: (state) => {
-      state.player = "loaded";
+    setSliceLoaded: (state, { payload }) => {
+      if (!state[payload]) throw new Error(`module ${payload} doesn't exists`);
+
+      if (state[payload] === "pending") {
+        state[payload] = "loaded";
+      }
     },
   },
 });
 
-function createStore(currentStore, moduleName, slice) {
+/**
+ *
+ * @param {*} currentStore
+ * @param {object} slices { player: playerSlice }
+ * @returns
+ */
+function createStore(currentStore, slices = {}) {
   const reducer = {
     app: appSlice.reducer,
   };
 
-  if (slice && slice.reducer && moduleName) {
-    reducer[moduleName] = slice.reducer;
-  }
+  Object.entries(slices).forEach(([moduleName, slice]) => {
+    if (slice && slice.reducer && moduleName) {
+      reducer[moduleName] = slice.reducer;
+    }
+  });
 
   return configureStore({
     preloadedState: currentStore ? currentStore.getState() : undefined,
@@ -37,35 +52,85 @@ function createStore(currentStore, moduleName, slice) {
   });
 }
 
-const initialStore = createStore();
-
 function App() {
-  const [store, setStore] = useState(initialStore);
+  const [store, setStore] = useState(null);
 
   useEffect(() => {
-    store.subscribe(async () => {
+    const initialStore = createStore();
+    setStore(initialStore);
+  }, []);
+
+  useEffect(() => {
+    if (!store) return;
+
+    const unsubscribe = store.subscribe(async () => {
       const state = store.getState();
 
+      const slicesToLoad = {};
+
       if (state.app.player === "pending") {
-        const { playerSlice } = await import("./player.slice");
-
-        const newStore = createStore(store, "player", playerSlice);
-
-        newStore.dispatch(appSlice.actions.setPlayerLoaded());
-        setStore(newStore);
+        slicesToLoad.player = (
+          await import("./modules/player.slice")
+        ).playerSlice;
       }
+
+      if (state.app.profile === "pending") {
+        slicesToLoad.profile = (
+          await import("./modules/profile.slice")
+        ).profileSlice;
+      }
+
+      if (!Object.keys(slicesToLoad).length) return;
+
+      const newStore = createStore(store, slicesToLoad);
+
+      Object.keys(slicesToLoad).forEach((moduleName) => {
+        newStore.dispatch(appSlice.actions.setSliceLoaded(moduleName));
+      });
+
+      setStore(newStore);
+
+      /**
+       * Because of this unsubscription, it's impossible
+       * to delay module loading on a store instance.
+       * For example this will not work
+       *
+       * // OK
+       * store.dispatch(appSlice.actions.setSliceLoading("player"));
+       *
+       * setTimeout(() => {
+       *  // Not OK because unsubcribe as already been called
+       *  store.dispatch(appSlice.actions.setSliceLoading("profile"));
+       * })
+       */
+
+      unsubscribe();
     });
   }, [store]);
 
   const handleClick = () => {
-    store.dispatch(appSlice.actions.loadPlayer());
+    store.dispatch(appSlice.actions.setSliceLoading("player"));
+    store.dispatch(appSlice.actions.setSliceLoading("profile"));
   };
+
+  if (!store) return null;
+
+  const appState = store.getState().app;
 
   return (
     <Provider store={store}>
       <div className="App">
         <header className="App-header">
           <button onClick={handleClick}>Charger un module</button>
+          <ul>
+            {Object.entries(appState).map(([name, status]) => {
+              return (
+                <li key={name}>
+                  {name} : {status}
+                </li>
+              );
+            })}
+          </ul>
         </header>
       </div>
     </Provider>
