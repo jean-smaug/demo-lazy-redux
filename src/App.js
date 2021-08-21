@@ -25,6 +25,26 @@ const appSlice = createSlice({
         state[payload] = "loaded";
       }
     },
+    setSlicesLoading: (state, { payload }) => {
+      if (!payload.every((module) => state[module]))
+        throw new Error(`module ${payload} doesn't exists`);
+
+      payload.forEach((module) => {
+        if (state[module] === "idle") {
+          state[module] = "pending";
+        }
+      });
+    },
+    setSlicesLoaded: (state, { payload }) => {
+      if (!payload.every((module) => state[module]))
+        throw new Error(`module ${payload} doesn't exists`);
+
+      payload.forEach((module) => {
+        if (state[module] === "pending") {
+          state[module] = "loaded";
+        }
+      });
+    },
   },
 });
 
@@ -103,14 +123,12 @@ function App() {
        *  store.dispatch(appSlice.actions.setSliceLoading("profile"));
        * })
        */
-
       unsubscribe();
     });
   }, [store]);
 
   const handleClick = () => {
-    store.dispatch(appSlice.actions.setSliceLoading("player"));
-    store.dispatch(appSlice.actions.setSliceLoading("profile"));
+    store.dispatch(appSlice.actions.setSlicesLoading(["player", "profile"]));
   };
 
   if (!store) return null;
