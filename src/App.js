@@ -11,7 +11,9 @@ const appSlice = createSlice({
   },
   reducers: {
     loadPlayer: (state) => {
-      state.player = "pending";
+      if (state.player === "idle") {
+        state.player = "pending";
+      }
     },
     setPlayerLoaded: (state) => {
       state.player = "loaded";
@@ -19,12 +21,23 @@ const appSlice = createSlice({
   },
 });
 
-const initialStore = configureStore({
-  reducer: {
+function createStore(currentStore, moduleName, slice) {
+  const reducer = {
     app: appSlice.reducer,
-  },
-  middleware: (defaultMiddlewares) => defaultMiddlewares().concat(logger),
-});
+  };
+
+  if (slice && slice.reducer && moduleName) {
+    reducer[moduleName] = slice.reducer;
+  }
+
+  return configureStore({
+    preloadedState: currentStore ? currentStore.getState() : undefined,
+    reducer,
+    middleware: (defaultMiddlewares) => defaultMiddlewares().concat(logger),
+  });
+}
+
+const initialStore = createStore();
 
 function App() {
   const [store, setStore] = useState(initialStore);
@@ -36,15 +49,7 @@ function App() {
       if (state.app.player === "pending") {
         const { playerSlice } = await import("./player.slice");
 
-        const newStore = configureStore({
-          preloadedState: state,
-          reducer: {
-            app: appSlice.reducer,
-            player: playerSlice.reducer,
-          },
-          middleware: (defaultMiddlewares) =>
-            defaultMiddlewares().concat(logger),
-        });
+        const newStore = createStore(store, "player", playerSlice);
 
         newStore.dispatch(appSlice.actions.setPlayerLoaded());
         setStore(newStore);
