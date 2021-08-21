@@ -11,21 +11,21 @@ const appSlice = createSlice({
     profile: "idle",
   },
   reducers: {
-    setSliceLoading: (state, { payload }) => {
+    setModuleLoading: (state, { payload }) => {
       if (!state[payload]) throw new Error(`module ${payload} doesn't exists`);
 
       if (state[payload] === "idle") {
         state[payload] = "pending";
       }
     },
-    setSliceLoaded: (state, { payload }) => {
+    setModuleLoaded: (state, { payload }) => {
       if (!state[payload]) throw new Error(`module ${payload} doesn't exists`);
 
       if (state[payload] === "pending") {
         state[payload] = "loaded";
       }
     },
-    setSlicesLoading: (state, { payload }) => {
+    setModulesLoading: (state, { payload }) => {
       if (!payload.every((module) => state[module]))
         throw new Error(`module ${payload} doesn't exists`);
 
@@ -35,7 +35,7 @@ const appSlice = createSlice({
         }
       });
     },
-    setSlicesLoaded: (state, { payload }) => {
+    setModulesLoaded: (state, { payload }) => {
       if (!payload.every((module) => state[module]))
         throw new Error(`module ${payload} doesn't exists`);
 
@@ -86,27 +86,27 @@ function App() {
     const unsubscribe = store.subscribe(async () => {
       const state = store.getState();
 
-      const slicesToLoad = {};
+      const modulesToLoad = {};
 
       if (state.app.player === "pending") {
-        slicesToLoad.player = (
+        modulesToLoad.player = (
           await import("./modules/player.slice")
         ).playerSlice;
       }
 
       if (state.app.profile === "pending") {
-        slicesToLoad.profile = (
+        modulesToLoad.profile = (
           await import("./modules/profile.slice")
         ).profileSlice;
       }
 
-      if (!Object.keys(slicesToLoad).length) return;
+      if (!Object.keys(modulesToLoad).length) return;
 
-      const newStore = createStore(store, slicesToLoad);
+      const newStore = createStore(store, modulesToLoad);
 
-      Object.keys(slicesToLoad).forEach((moduleName) => {
-        newStore.dispatch(appSlice.actions.setSliceLoaded(moduleName));
-      });
+      newStore.dispatch(
+        appSlice.actions.setModulesLoaded(Object.keys(modulesToLoad))
+      );
 
       setStore(newStore);
 
@@ -116,11 +116,11 @@ function App() {
        * For example this will not work
        *
        * // OK
-       * store.dispatch(appSlice.actions.setSliceLoading("player"));
+       * store.dispatch(appSlice.actions.setModuleLoading("player"));
        *
        * setTimeout(() => {
        *  // Not OK because unsubcribe as already been called
-       *  store.dispatch(appSlice.actions.setSliceLoading("profile"));
+       *  store.dispatch(appSlice.actions.setModuleLoading("profile"));
        * })
        */
       unsubscribe();
@@ -128,7 +128,7 @@ function App() {
   }, [store]);
 
   const handleClick = () => {
-    store.dispatch(appSlice.actions.setSlicesLoading(["player", "profile"]));
+    store.dispatch(appSlice.actions.setModulesLoading(["player", "profile"]));
   };
 
   if (!store) return null;
