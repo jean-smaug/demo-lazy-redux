@@ -90,13 +90,17 @@ function App() {
 
       if (state.app.player === "pending") {
         modulesToLoad.player = (
-          await import("./modules/player.slice")
+          await import(
+            /* webpackChunkName: "player" */ "./modules/player.slice"
+          )
         ).playerSlice;
       }
 
       if (state.app.profile === "pending") {
         modulesToLoad.profile = (
-          await import("./modules/profile.slice")
+          await import(
+            /* webpackChunkName: "profile" */ "./modules/profile.slice"
+          )
         ).profileSlice;
       }
 
